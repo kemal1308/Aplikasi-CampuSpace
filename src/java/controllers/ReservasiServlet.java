@@ -6,6 +6,7 @@ package controllers;
 
 import java.io.IOException;
 import java.sql.Date;
+import java.sql.Time;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import javax.servlet.ServletException;
@@ -22,7 +23,6 @@ public class ReservasiServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         
-        // 1. Validasi Sesi Pengguna
         HttpSession session = request.getSession();
         String idPengguna = (String) session.getAttribute("idPengguna");
         
@@ -34,12 +34,11 @@ public class ReservasiServlet extends HttpServlet {
         String idFasilitas = request.getParameter("id_fasilitas");
 
         try {
-            // 2. Ambil Parameter Tanggal dan Keperluan dari Form HTML
             String tglPinjamStr = request.getParameter("tgl_pinjam");
             String tglKembaliStr = request.getParameter("tgl_kembali");
-            String keperluan = request.getParameter("keperluan"); // <-- MENANGKAP PARAMETER KEPERLUAN
+            String keperluan = request.getParameter("keperluan"); 
+            String tipeWaktu = request.getParameter("tipe_waktu");
             
-            // Validasi Input Kosong
             if (idFasilitas == null || idFasilitas.trim().isEmpty() || 
                 tglPinjamStr == null || tglPinjamStr.trim().isEmpty() || 
                 tglKembaliStr == null || tglKembaliStr.trim().isEmpty()) {
@@ -47,55 +46,63 @@ public class ReservasiServlet extends HttpServlet {
                 return;
             }
 
-            // ==========================================================
-            // LOGIKA PEMBATASAN DURASI PINJAM
-            // ==========================================================
-            // Ubah string tanggal ke format LocalDate Java untuk menghitung selisih hari
             LocalDate tglPinjamLocal = LocalDate.parse(tglPinjamStr);
             LocalDate tglKembaliLocal = LocalDate.parse(tglKembaliStr);
-            
-            // Hitung durasi (selisih hari)
+            LocalDate hariIni = LocalDate.now();
+
+            // Semua tipe waktu wajib H-1
+            if (!tglPinjamLocal.isAfter(hariIni)) {
+                response.sendRedirect("user/reservasi.jsp?id=" + idFasilitas + "&status=error_h1");
+                return;
+            }
+
             long durasiPinjam = ChronoUnit.DAYS.between(tglPinjamLocal, tglKembaliLocal);
-            
-            // Ambil jatah maksimal hari berdasarkan Role User dari database
             DataManager dm = new DataManager();
             int maxHari = dm.getMaxPinjam(idPengguna); 
 
-            // Cek Aturan 1: Apakah durasi melebihi batas jatah role?
             if (durasiPinjam > maxHari) {
-                // Tolak dan kembalikan ke form dengan pesan error durasi
                 response.sendRedirect("user/reservasi.jsp?id=" + idFasilitas + "&status=error_durasi&max=" + maxHari);
                 return; 
             }
-            
-            // Cek Aturan 2: Tanggal kembali tidak boleh sebelum tanggal pinjam (Time Travel)
             if (durasiPinjam < 0) {
-                // Tolak dan kembalikan ke form dengan pesan error tanggal terbalik
                 response.sendRedirect("user/reservasi.jsp?id=" + idFasilitas + "&status=error_tanggal_mundur");
                 return; 
             }
-            // ==========================================================
 
-           // 3. Konversi format LocalDate ke java.sql.Date untuk Database SQL
-            Date sqlTglPinjam = Date.valueOf(tglPinjamLocal);
-            Date sqlTglKembali = Date.valueOf(tglKembaliLocal);
+            String strJamMulai = "";
+            String strJamSelesai = "";
 
-            // ==========================================================
-            // 4. CEK ATURAN 3: VALIDASI BENTROK JADWAL & H-1 STERILISASI
-            // ==========================================================
-            String jadwalBentrok = dm.cekKetersediaanJadwal(idFasilitas, sqlTglPinjam, sqlTglKembali);
+            if ("seharian".equals(tipeWaktu)) {
+                strJamMulai = "07:00:00";
+                strJamSelesai = "21:00:00";
+            } else {
+                strJamMulai = request.getParameter("jam_mulai");
+                strJamSelesai = request.getParameter("jam_selesai");
+
+                if (strJamMulai == null || strJamMulai.isEmpty() || strJamSelesai == null || strJamSelesai.isEmpty()) {
+                    response.sendRedirect("user/reservasi.jsp?id=" + idFasilitas + "&status=error_input");
+                    return;
+                }
+                
+                if (strJamMulai.length() == 5) strJamMulai += ":00";
+                if (strJamSelesai.length() == 5) strJamSelesai += ":00";
+                
+                if (Time.valueOf(strJamSelesai).before(Time.valueOf(strJamMulai))) {
+                    response.sendRedirect("user/reservasi.jsp?id=" + idFasilitas + "&status=error_jam_mundur");
+                    return;
+                }
+            }
+            
+            // CEK BENTROK: Memisahkan tanggal dan jam agar tidak terikat sebagai satu timeline panjang
+            String jadwalBentrok = dm.cekKetersediaanJadwal(idFasilitas, tglPinjamStr, tglKembaliStr, strJamMulai, strJamSelesai);
             if (jadwalBentrok != null) {
                 response.sendRedirect("user/reservasi.jsp?id=" + idFasilitas + "&status=error_bentrok&tgl=" + java.net.URLEncoder.encode(jadwalBentrok, "UTF-8"));
-                return; // Hentikan eksekusi, kembalikan user!
+                return; 
             }
 
-            // 5. Generate ID Peminjaman unik
             String idPeminjaman = "RES-" + System.currentTimeMillis();
+            boolean sukses = dm.simpanReservasi(idPeminjaman, idFasilitas, idPengguna, tglPinjamStr, tglKembaliStr, keperluan, strJamMulai, strJamSelesai);
 
-            // 6. Simpan ke Database dengan menyertakan variabel keperluan
-            boolean sukses = dm.simpanReservasi(idPeminjaman, idFasilitas, idPengguna, sqlTglPinjam, sqlTglKembali, keperluan);
-
-            // 6. Arahkan Halaman Berdasarkan Hasil
             if (sukses) {
                 response.sendRedirect("user/peminjamanku.jsp?status=sukses_reservasi");
             } else {
@@ -103,11 +110,9 @@ public class ReservasiServlet extends HttpServlet {
             }
 
         } catch (java.time.format.DateTimeParseException e) {
-            // Jika browser mengirim format tanggal yang tidak valid
             e.printStackTrace();
             response.sendRedirect("user/reservasi.jsp?id=" + idFasilitas + "&status=error_format_tanggal");
         } catch (Exception e) {
-            // Jika ada error internal sistem lainnya
             e.printStackTrace();
             response.sendRedirect("user/reservasi.jsp?id=" + idFasilitas + "&status=error_sistem");
         }

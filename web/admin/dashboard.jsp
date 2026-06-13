@@ -26,6 +26,7 @@
     List<Fasilitas> listFasilitas = dm.getAllFasilitas();
     
     SimpleDateFormat fmtTgl = new SimpleDateFormat("dd MMM yyyy");
+    SimpleDateFormat fmtJam = new SimpleDateFormat("HH:mm"); // Formatter untuk Jam di Admin
 
     Calendar cal = new GregorianCalendar();
     int currentMonth = cal.get(Calendar.MONTH); 
@@ -278,14 +279,25 @@
                                     <th class="p-4 font-semibold">ID Pemohon</th>
                                     <th class="p-4 font-semibold">Fasilitas</th>
                                     <th class="p-4 font-semibold">Keperluan</th>
-                                    <th class="p-4 font-semibold">Tanggal Pinjam</th>
+                                    <th class="p-4 font-semibold">Jadwal Pinjam</th>
                                     <th class="p-4 font-semibold text-center">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="text-sm divide-y divide-gray-100">
                                 <% if(listPending != null && !listPending.isEmpty()) {
                                        for(Peminjaman p : listPending) { 
-                                           String namaFasilitas = dm.getNamaFasilitas(p.getIdFasilitas()); %>
+                                           String namaFasilitas = dm.getNamaFasilitas(p.getIdFasilitas()); 
+                                           
+                                           String jMulaiApp = p.getJamMulai() != null ? fmtJam.format(p.getJamMulai()) : "07:00";
+                                           String jSelesaiApp = p.getJamSelesai() != null ? fmtJam.format(p.getJamSelesai()) : "21:00";
+                                           String tglMApp = p.getTanggalPinjam() != null ? fmtTgl.format(p.getTanggalPinjam()) : "-";
+                                           String tglSApp = p.getTanggalKembali() != null ? fmtTgl.format(p.getTanggalKembali()) : "-";
+                                           
+                                           String jadwalDisplayApp = tglMApp;
+                                           if (!tglMApp.equals(tglSApp) && !tglSApp.equals("-")) {
+                                               jadwalDisplayApp += " s/d " + tglSApp;
+                                           }
+                                %>
                                 <tr class="hover:bg-gray-50/50 transition">
                                     <td class="p-4 font-mono text-xs font-semibold text-primary"><%= p.getIdPeminjaman() %></td>
                                     <td class="p-4 font-medium text-textmain"><%= p.getIdPengguna() %></td>
@@ -293,18 +305,21 @@
                                     <td class="p-4 text-xs text-gray-600 max-w-[200px] truncate" title="<%= p.getKeperluan() != null ? p.getKeperluan() : "Tidak ada catatan" %>">
                                         <%= p.getKeperluan() != null ? p.getKeperluan() : "-" %>
                                     </td>
-                                    <td class="p-4 text-xs text-gray-500"><%= p.getTanggalPinjam() != null ? fmtTgl.format(p.getTanggalPinjam()) : "-" %></td>
+                                    <td class="p-4">
+                                        <div class="text-xs text-textmain font-medium"><%= jadwalDisplayApp %></div>
+                                        <div class="text-[10px] text-gray-500 mt-0.5"><i class="ph-bold ph-clock text-[10px]"></i> <%= jMulaiApp %> - <%= jSelesaiApp %> WIB</div>
+                                    </td>
                                     <td class="p-4 align-top">
                                         <div class="flex items-center justify-center gap-2">
                                             <form action="../ApprovalServlet" method="POST" class="m-0 p-0">
                                                 <input type="hidden" name="id_peminjaman" value="<%= p.getIdPeminjaman() %>">
                                                 <input type="hidden" name="aksi" value="approve">
-                                                <button type="submit" class="w-9 h-9 rounded-lg bg-green-50 text-success border border-green-200 hover:bg-success hover:text-white flex items-center justify-center transition shadow-sm"><i class="ph-bold ph-check text-lg"></i></button>
+                                                <button type="submit" class="w-9 h-9 rounded-lg bg-green-50 text-success border border-green-200 hover:bg-success hover:text-white flex items-center justify-center transition shadow-sm" title="Setujui"><i class="ph-bold ph-check text-lg"></i></button>
                                             </form>
                                             <form action="../ApprovalServlet" method="POST" class="m-0 p-0">
                                                 <input type="hidden" name="id_peminjaman" value="<%= p.getIdPeminjaman() %>">
                                                 <input type="hidden" name="aksi" value="reject">
-                                                <button type="submit" class="w-9 h-9 rounded-lg bg-red-50 text-danger border border-red-200 hover:bg-danger hover:text-white flex items-center justify-center transition shadow-sm"><i class="ph-bold ph-x text-lg"></i></button>
+                                                <button type="submit" class="w-9 h-9 rounded-lg bg-red-50 text-danger border border-red-200 hover:bg-danger hover:text-white flex items-center justify-center transition shadow-sm" title="Tolak"><i class="ph-bold ph-x text-lg"></i></button>
                                             </form>
                                         </div>
                                     </td>
@@ -453,7 +468,11 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-gray-50 border-b border-gray-200 text-xs text-textmuted uppercase tracking-wider">
-                                <th class="p-4 font-semibold">ID Reservasi</th><th class="p-4 font-semibold">Pemohon</th><th class="p-4 font-semibold">Fasilitas</th><th class="p-4 font-semibold">Status Akhir</th>
+                                <th class="p-4 font-semibold">ID Reservasi</th>
+                                <th class="p-4 font-semibold">Pemohon</th>
+                                <th class="p-4 font-semibold">Fasilitas</th>
+                                <th class="p-4 font-semibold">Jadwal Pinjam</th>
+                                <th class="p-4 font-semibold">Status Akhir</th>
                             </tr>
                         </thead>
                         <tbody class="text-sm divide-y divide-gray-100" id="laporanTableBody">
@@ -464,14 +483,12 @@
                                        String stat = r.getStatusPeminjaman();
                                        if(stat == null) continue;
 
-                                       // FILTER KHUSUS: Hanya tampilkan 5 status spesifik ini
                                        if(!stat.equals("DIKEMBALIKAN") && !stat.equals("APPROVED") && !stat.equals("REJECTED") && !stat.equals("DENDA") && !stat.equals("SELESAI")) {
                                            continue;
                                        }
                                        adaLog = true;
                                        String namaFas = dm.getNamaFasilitas(r.getIdFasilitas()); 
                                        
-                                       // Ekstraksi Bulan & Tahun khusus untuk filtering JS
                                        int logMonth = -1;
                                        int logYear = -1;
                                        if(r.getTanggalPinjam() != null) {
@@ -481,6 +498,18 @@
                                            logYear = logCal.get(Calendar.YEAR);
                                        }
                                        
+                                       // MEMFORMAT KOLOM JADWAL
+                                       String jMulaiLog = r.getJamMulai() != null ? fmtJam.format(r.getJamMulai()) : "07:00";
+                                       String jSelesaiLog = r.getJamSelesai() != null ? fmtJam.format(r.getJamSelesai()) : "21:00";
+                                       String tglMLog = r.getTanggalPinjam() != null ? fmtTgl.format(r.getTanggalPinjam()) : "-";
+                                       String tglSLog = r.getTanggalKembali() != null ? fmtTgl.format(r.getTanggalKembali()) : "-";
+                                       String tipeInfoLog = (jMulaiLog.equals("07:00") && jSelesaiLog.equals("21:00")) ? "Seharian" : "Per Jam";
+                                       
+                                       String displayJadwalLog = tglMLog;
+                                       if(!tglMLog.equals(tglSLog) && !tglSLog.equals("-")) {
+                                           displayJadwalLog += " s/d " + tglSLog;
+                                       }
+
                                        String badgeClass = "bg-gray-100 text-gray-700 border-gray-200";
                                        if(stat.equals("APPROVED")) badgeClass = "bg-green-50 text-success border-green-200";
                                        else if(stat.equals("REJECTED")) badgeClass = "bg-red-50 text-danger border-red-200";
@@ -493,6 +522,10 @@
                                 <td class="p-4 font-medium text-textmain"><%= r.getIdPengguna() %></td>
                                 <td class="p-4 text-gray-600"><%= namaFas %></td>
                                 <td class="p-4">
+                                    <div class="text-xs text-textmain font-medium"><%= displayJadwalLog %></div>
+                                    <div class="text-[10px] text-gray-500 mt-0.5"><i class="ph-bold ph-clock text-[10px]"></i> <%= jMulaiLog %> - <%= jSelesaiLog %> WIB (<%= tipeInfoLog %>)</div>
+                                </td>
+                                <td class="p-4">
                                     <span class="<%= badgeClass %> border px-2.5 py-1 rounded-full text-[10px] font-bold uppercase inline-flex items-center gap-1">
                                         <%= stat %>
                                         <% if(stat.equals("DENDA") && "LUNAS".equals(r.getStatusDenda())) { %>
@@ -503,7 +536,7 @@
                             </tr>
                             <% } } 
                             if(!adaLog) { %>
-                            <tr id="emptyRow"><td colspan="4" class="p-8 text-center text-gray-400 text-sm">Belum ada riwayat transaksi yang tersimpan.</td></tr>
+                            <tr id="emptyRow"><td colspan="5" class="p-8 text-center text-gray-400 text-sm">Belum ada riwayat transaksi yang tersimpan.</td></tr>
                             <% } %>
                         </tbody>
                     </table>
@@ -678,7 +711,6 @@
                 }
             });
             
-            // Tangani status jika tabel kosong setelah difilter
             let emptyRowFiltered = document.getElementById('emptyRowFiltered');
             let emptyRowOriginal = document.getElementById('emptyRow');
             
@@ -688,7 +720,8 @@
                 if(!emptyRowFiltered) {
                     emptyRowFiltered = document.createElement('tr');
                     emptyRowFiltered.id = 'emptyRowFiltered';
-                    emptyRowFiltered.innerHTML = '<td colspan="4" class="p-8 text-center text-gray-400 text-sm">Tidak ada riwayat transaksi yang cocok dengan filter.</td>';
+                    // UPDATE COLSPAN MENJADI 5
+                    emptyRowFiltered.innerHTML = '<td colspan="5" class="p-8 text-center text-gray-400 text-sm">Tidak ada riwayat transaksi yang cocok dengan filter.</td>';
                     document.getElementById('laporanTableBody').appendChild(emptyRowFiltered);
                 }
                 emptyRowFiltered.style.display = '';

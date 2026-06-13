@@ -8,6 +8,7 @@
 <%@page import="java.util.List"%>
 <%@page import="models.*"%>
 <%@page import="controllers.DataManager"%>
+<%@page import="java.time.LocalDate"%>
 <%
     String idUser = (String) session.getAttribute("idPengguna");
     if(idUser == null) {
@@ -15,23 +16,20 @@
         return;
     }
 
-    // Mengatasi masalah "null" pada nama pengguna
     String namaUser = (String) session.getAttribute("namaPengguna");
     if (namaUser == null || namaUser.equals("null") || namaUser.trim().isEmpty()) {
         namaUser = (String) session.getAttribute("userAktif");
     }
     if (namaUser == null || namaUser.equals("null") || namaUser.trim().isEmpty()) {
-        namaUser = "Shashashany"; 
+        namaUser = "Pengguna"; 
     }
     String tipeUser = (String) session.getAttribute("tipePengguna");
     if (tipeUser == null) tipeUser = "Mahasiswa";
 
-    // Ambil data fasilitas jika ada ID yang dikirim dari katalog
     String idFasilitasTerpilih = request.getParameter("id");
     DataManager dm = new DataManager();
     Fasilitas fas = null;
     if(idFasilitasTerpilih != null) {
-        // Cari nama fasilitas untuk ditampilkan di form
         List<Fasilitas> kats = dm.getAllFasilitas();
         for(Fasilitas f : kats) {
             if(f.getIdFasilitas().equals(idFasilitasTerpilih)) {
@@ -40,6 +38,11 @@
             }
         }
     }
+
+    LocalDate hariIni = LocalDate.now();
+    LocalDate besok = hariIni.plusDays(1);
+    String hariIniStr = hariIni.toString();
+    String besokStr = besok.toString();
 %>
 <!DOCTYPE html>
 <html lang="id">
@@ -50,7 +53,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script>
         tailwind.config = {
             theme: { extend: { fontFamily: { sans: ['Poppins', 'sans-serif'] }, colors: { primary: '#16325B', secondary: '#22577A', background: '#F4F7F9', textmain: '#1F2937', textmuted: '#6B7280', danger: '#C62828', success: '#10B981' } } }
@@ -66,13 +68,9 @@
         </div>
         <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
             <a href="<%= request.getContextPath() %>/user/beranda.jsp" class="flex items-center gap-3 px-4 py-3 text-sm text-textmuted rounded-xl hover:bg-gray-100 transition"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span>Beranda</span></a>
-            
             <a href="<%= request.getContextPath() %>/user/katalog.jsp" class="flex items-center gap-3 px-4 py-3 text-sm text-textmuted rounded-xl hover:bg-gray-100 transition"><i data-lucide="search" class="w-5 h-5"></i><span>Cari Fasilitas</span></a>
-            
             <a href="<%= request.getContextPath() %>/user/peminjamanku.jsp" class="flex items-center gap-3 px-4 py-3 text-sm text-textmuted rounded-xl hover:bg-gray-100 transition"><i data-lucide="calendar-days" class="w-5 h-5"></i><span>Jadwal Peminjamanku</span></a>
-            
             <a href="<%= request.getContextPath() %>/user/pengaturan.jsp" class="flex items-center gap-3 px-4 py-3 text-sm text-textmuted rounded-xl hover:bg-gray-100 transition"><i data-lucide="settings" class="w-5 h-5"></i><span>Pengaturan Akun</span></a>
-            
             <div class="pt-4 mt-2">
                 <a href="<%= request.getContextPath() %>/user/reservasi.jsp" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-primary bg-[#D6E8F5] rounded-xl transition border-l-4 border-primary">
                     <i data-lucide="plus" class="w-4 h-4"></i>Ajukan Peminjaman
@@ -150,32 +148,54 @@
                             <input type="hidden" name="id_fasilitas" value="<%= (fas != null) ? fas.getIdFasilitas() : "" %>" required>
                         </div>
 
+                        <div class="space-y-3 pt-2">
+                            <label class="text-sm font-semibold text-textmain flex items-center gap-2">Tipe Waktu Peminjaman</label>
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <label class="flex items-center gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-primary bg-white transition-all flex-1">
+                                    <input type="radio" name="tipe_waktu" value="seharian" checked onchange="toggleWaktuInput()" class="w-4 h-4 text-primary focus:ring-primary">
+                                    <span class="text-sm font-medium text-textmain">Seharian Penuh (07:00 - 21:00)</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-primary bg-white transition-all flex-1">
+                                    <input type="radio" name="tipe_waktu" value="per_jam" onchange="toggleWaktuInput()" class="w-4 h-4 text-primary focus:ring-primary">
+                                    <span class="text-sm font-medium text-textmain">Per Jam Spesifik</span>
+                                </label>
+                            </div>
+                            <span class="block text-[11px] text-gray-400 italic mt-1">Semua reservasi wajib dilakukan minimal H-1 sebelum penggunaan.</span>
+                        </div>
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                             <div class="space-y-2">
                                 <label class="text-sm font-semibold text-textmain flex items-center gap-2">Tanggal Mulai Pinjam</label>
-                                <input type="date" name="tgl_pinjam" required class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary outline-none transition-all text-sm text-gray-600">
+                                <input type="date" id="tglPinjam" name="tgl_pinjam" required class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary outline-none transition-all text-sm text-gray-600">
+                            </div>
+                            <div class="space-y-2" id="containerTglSelesai">
+                                <label class="text-sm font-semibold text-textmain flex items-center gap-2">Tanggal Selesai Pinjam</label>
+                                <input type="date" id="tglKembali" name="tgl_kembali" required class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary outline-none transition-all text-sm text-gray-600">
+                            </div>
+                        </div>
+
+                        <div id="waktuSpesifikContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6 transition-all duration-300 mt-2" style="display:none;">
+                            <div class="space-y-2">
+                                <label class="text-sm font-semibold text-textmain flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4 text-gray-400"></i> Jam Mulai Digunakan</label>
+                                <input type="time" id="jamMulai" name="jam_mulai" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary outline-none transition-all text-sm text-gray-600">
                             </div>
                             <div class="space-y-2">
-                                <label class="text-sm font-semibold text-textmain flex items-center gap-2">Tanggal Selesai Pinjam</label>
-                                <input type="date" name="tgl_kembali" required class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary outline-none transition-all text-sm text-gray-600">
+                                <label class="text-sm font-semibold text-textmain flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4 text-gray-400"></i> Jam Selesai Peminjaman</label>
+                                <input type="time" id="jamSelesai" name="jam_selesai" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-primary outline-none transition-all text-sm text-gray-600">
                             </div>
                         </div>
 
                         <div class="space-y-2">
                             <label class="text-sm font-semibold text-textmain flex items-center gap-2">Keperluan Peminjaman</label>
-                            <textarea name="keperluan" rows="3" placeholder="Contoh: Rapat koordinasi organisasi kemahasiswaan..." class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary outline-none transition-all text-sm text-gray-600"></textarea>
+                            <textarea name="keperluan" rows="3" required placeholder="Contoh: Rapat koordinasi organisasi kemahasiswaan..." class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary outline-none transition-all text-sm text-gray-600"></textarea>
                         </div>
                         
                         <div class="bg-[#F8F9FA] p-5 rounded-2xl border border-blue-100">
-                            <h4 class="text-sm font-bold text-primary flex items-center gap-2 mb-2"><i data-lucide="calculator" class="w-4 h-4"></i> Simulasi Keterlambatan</h4>
-                            <p class="text-xs text-textmuted mb-4">Sistem menghitung estimasi denda otomatis berdasarkan durasi peminjaman dan keterlambatan.</p>
-                            <div class="flex justify-between items-center text-xs font-semibold border-b border-gray-200 pb-2 mb-2">
-                                <span class="text-gray-500">Durasi Peminjaman</span>
-                                <span class="text-textmain flex items-center gap-1"><i data-lucide="chevrons-up-down" class="w-3 h-3"></i> Menyesuaikan Input</span>
-                            </div>
+                            <h4 class="text-sm font-bold text-primary flex items-center gap-2 mb-2"><i data-lucide="calculator" class="w-4 h-4"></i> Simulasi Reservasi</h4>
+                            <p class="text-xs text-textmuted mb-4">Sistem akan menolak pengajuan jika waktu yang Anda pilih bertabrakan dengan jadwal mahasiswa lain atau melanggar aturan batas hari.</p>
                             <div class="flex justify-between items-center text-xs font-semibold">
-                                <span class="text-gray-500">Status Kuota Pinjam</span>
-                                <span class="text-success font-bold">Dalam Batas Wajar</span>
+                                <span class="text-gray-500">Status Validasi Waktu</span>
+                                <span class="text-success font-bold">Otomatis Terkunci oleh Sistem</span>
                             </div>
                         </div>
 
@@ -194,7 +214,6 @@
                 </div>
 
                 <div class="space-y-6">
-                    
                     <div class="bg-[#00346F] rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
                         <div class="relative z-10 flex items-center gap-4">
                             <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/20">
@@ -223,41 +242,32 @@
                                     <p class="text-xs text-textmain leading-relaxed"><strong class="font-bold">Maksimal Peminjaman:</strong> 3 hari untuk Mahasiswa dan 7 hari untuk Dosen.</p>
                                 </div>
                             </li>
+                            
                             <li class="flex items-start gap-3">
                                 <i data-lucide="circle-dollar-sign" class="w-4 h-4 text-danger shrink-0 mt-0.5"></i>
-                                <div>
-                                    <p class="text-xs text-textmain leading-relaxed"><strong class="font-bold text-danger">Ketentuan Denda:</strong> Keterlambatan pengembalian dikenakan denda sesuai kebijakan universitas.</p>
+                                <div class="w-full">
+                                    <p class="text-xs text-textmain leading-relaxed mb-2"><strong class="font-bold text-danger">Ketentuan Denda Keterlambatan:</strong> Sistem akan mengakumulasi denda secara otomatis jika melewati batas waktu pengembalian:</p>
+                                    <div class="bg-red-50/50 border border-red-100 rounded-lg p-3 space-y-2">
+                                        <div class="flex justify-between items-center text-[11px] font-semibold text-red-800">
+                                            <span>🏢 Ruangan/Gedung</span>
+                                            <span class="bg-white px-2 py-1 rounded shadow-sm border border-red-100">Rp 50.000 / Hari</span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-[11px] font-semibold text-red-800">
+                                            <span>🔌 Alat Elektronik</span>
+                                            <span class="bg-white px-2 py-1 rounded shadow-sm border border-red-100">Rp 20.000 / Hari</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </li>
-                            <li class="flex items-start gap-3">
-                                <i data-lucide="sparkles" class="w-4 h-4 text-primary shrink-0 mt-0.5"></i>
-                                <div>
-                                    <p class="text-xs text-textmain leading-relaxed"><strong class="font-bold">Kebersihan:</strong> Peminjam wajib menjaga kebersihan dan mengembalikan peralatan ke posisi semula.</p>
-                                </div>
-                            </li>
+
                             <li class="flex items-start gap-3">
                                 <i data-lucide="shield-alert" class="w-4 h-4 text-primary shrink-0 mt-0.5"></i>
                                 <div>
-                                    <p class="text-xs text-textmain leading-relaxed"><strong class="font-bold">Pembatalan:</strong> Minimal 24 jam sebelum waktu peminjaman dimulai.</p>
+                                    <p class="text-xs text-textmain leading-relaxed"><strong class="font-bold">Pemesanan Wajib H-1:</strong> Sistem mengunci pemesanan untuk hari yang sama. Semua pesanan wajib minimal 1 hari sebelumnya.</p>
                                 </div>
                             </li>
                         </ul>
                     </div>
-
-                    <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                        <h2 class="text-[14px] font-bold text-textmain mb-4">Butuh Bantuan?</h2>
-                        <div class="space-y-3">
-                            <a href="#" class="w-full flex justify-between items-center px-4 py-3 bg-[#F8FAFC] border border-gray-100 hover:border-primary/30 rounded-xl group transition-all">
-                                <span class="text-xs font-semibold text-textmain">Hubungi Admin Fasilitas</span>
-                                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-primary transition-all transform group-hover:translate-x-1"></i>
-                            </a>
-                            <a href="#" class="w-full flex justify-between items-center px-4 py-3 bg-[#F8FAFC] border border-gray-100 hover:border-primary/30 rounded-xl group transition-all">
-                                <span class="text-xs font-semibold text-textmain">Panduan Peminjaman</span>
-                                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-primary transition-all transform group-hover:translate-x-1"></i>
-                            </a>
-                        </div>
-                    </div>
-
                 </div>
             </div>
         </div>
@@ -278,7 +288,6 @@
     <script>
         lucide.createIcons({ attrs: { 'stroke-width': 1.5 } });
 
-        // Fungsi Master untuk menampilkan Pop-up Toast
         function showToast(title, message, type) {
             const toast = document.getElementById('toastNotification');
             const body = document.getElementById('toastBody');
@@ -300,41 +309,73 @@
             setTimeout(() => {
                 toast.classList.add('translate-x-full');
                 setTimeout(() => toast.classList.add('hidden'), 500);
-            }, 5000);
+            }, 6000);
         }
 
-        // Tangkap Status Parameter dari URL (Servlet)
         const urlParams = new URLSearchParams(window.location.search);
         const status = urlParams.get('status');
         const batasHari = urlParams.get('max');
         const idFas = urlParams.get('id') || "";
 
-        // ... (kode penangkap status sebelumnya di dalam Reservasi.jsp) ...
         if (status) {
             if (status === 'error_durasi') {
                 showToast('Pengajuan Ditolak', 'Durasi reservasi Anda melebihi batas ketentuan. Maksimal untuk akun Anda adalah ' + batasHari + ' hari.', 'error');
             } 
             else if (status === 'error_tanggal_mundur' || status === 'error_tanggal') {
-                showToast('Tanggal Tidak Valid', 'Tanggal Selesai Pinjam tidak boleh lebih awal dari Tanggal Mulai Pinjam!', 'error');
+                showToast('Tanggal Tidak Valid', 'Tanggal Selesai Pinjam tidak boleh lebih awal dari Tanggal Mulai Pinjam (atau masa lalu)!', 'error');
             } 
-            // ===========================================================
-            // TAMBAHKAN BARIS INI UNTUK MENANGKAP ERROR BENTROK JADWAL
-            // ===========================================================
+            else if (status === 'error_h1') {
+                showToast('Pemesanan Ditolak', 'Reservasi harus dilakukan minimal 1 hari (H-1) sebelum penggunaan!', 'error');
+            }
+            else if (status === 'error_jam_mundur') {
+                showToast('Waktu Tidak Valid', 'Jam Selesai peminjaman tidak boleh lebih awal dari Jam Mulai!', 'error');
+            }
             else if (status === 'error_bentrok') {
                 const tglBentrok = urlParams.get('tgl');
-                showToast('Jadwal Bertabrakan!', 'Fasilitas sudah dibooking pada ' + decodeURIComponent(tglBentrok) + ' (Termasuk sterilisasi H-1). Silakan ganti tanggal Anda.', 'error');
+                showToast('Jadwal Bertabrakan!', 'Fasilitas sudah dibooking pada ' + decodeURIComponent(tglBentrok) + '. Silakan ganti jam atau tanggal Anda.', 'error');
             }
-            // ===========================================================
             else if (status === 'error_input') {
-                showToast('Data Tidak Lengkap', 'Pastikan Anda sudah memilih fasilitas dari Katalog dengan benar!', 'error');
+                showToast('Data Tidak Lengkap', 'Pastikan Anda sudah memilih fasilitas dan melengkapi isian dengan benar!', 'error');
             } 
-        // ... (sisa kode JavaScript) ...
             
-            // Bersihkan parameter URL setelah notifikasi dipicu agar bersih saat di-refresh
             window.history.replaceState({}, document.title, window.location.pathname + (idFas ? "?id=" + idFas : ""));
         }
 
-        // SCRIPT ANTI-SPAM KLIK BUTTON
+        function toggleWaktuInput() {
+            const tipeWaktu = document.querySelector('input[name="tipe_waktu"]:checked').value;
+            const containerWaktu = document.getElementById('waktuSpesifikContainer');
+            const containerTglSelesai = document.getElementById('containerTglSelesai');
+            const jamMulai = document.getElementById('jamMulai');
+            const jamSelesai = document.getElementById('jamSelesai');
+            const tglPinjam = document.getElementById('tglPinjam');
+            const tglKembali = document.getElementById('tglKembali');
+            
+            const besok = '<%= besokStr %>';
+
+            // KEDUA TIPE WAJIB H-1
+            tglPinjam.min = besok;
+            tglKembali.min = besok;
+            
+            containerTglSelesai.style.display = 'block';
+            tglKembali.required = true;
+
+            if (tipeWaktu === 'per_jam') {
+                containerWaktu.style.display = 'grid';
+                jamMulai.required = true;
+                jamSelesai.required = true;
+            } else {
+                containerWaktu.style.display = 'none';
+                jamMulai.required = false;
+                jamSelesai.required = false;
+                jamMulai.value = '';
+                jamSelesai.value = '';
+            }
+        }
+        
+        document.addEventListener("DOMContentLoaded", function() {
+            toggleWaktuInput();
+        });
+
         function cegahSpamKlik() {
             const btn = document.getElementById('btnSubmit');
             if (btn) {

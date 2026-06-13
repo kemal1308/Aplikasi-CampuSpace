@@ -1,6 +1,7 @@
 package models;
 
 import java.sql.Date;
+import java.sql.Time;
 
 public class Peminjaman {
     private String idPeminjaman;
@@ -8,6 +9,8 @@ public class Peminjaman {
     private String idPengguna;
     private Date tanggalPinjam;
     private Date tanggalKembali;
+    private Time jamMulai;
+    private Time jamSelesai;
     private String statusPeminjaman;
     private String buktiPembayaran;
     private String statusDenda;
@@ -18,11 +21,18 @@ public class Peminjaman {
     public Peminjaman() {}
 
     // === GETTER & SETTER ===
+    public Time getJamMulai() { return jamMulai; }
+    public void setJamMulai(Time jamMulai) { this.jamMulai = jamMulai; }
+
+    public Time getJamSelesai() { return jamSelesai; }
+    public void setJamSelesai(Time jamSelesai) { this.jamSelesai = jamSelesai; }
+
     public String getBuktiPembayaran() { return buktiPembayaran; }
     public void setBuktiPembayaran(String buktiPembayaran) { this.buktiPembayaran = buktiPembayaran; }
 
     public String getStatusDenda() { return statusDenda; }
     public void setStatusDenda(String statusDenda) { this.statusDenda = statusDenda; }
+    
     public String getIdPeminjaman() { return idPeminjaman; }
     public void setIdPeminjaman(String idPeminjaman) { this.idPeminjaman = idPeminjaman; }
 

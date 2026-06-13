@@ -4,12 +4,6 @@
     Author     : Kemal Farouq
 --%>
 
-<%-- 
-    Document   : peminjamanku
-    Created on : 29 May 2026
-    Author     : Kemal Farouq
---%>
-
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
 <%@page import="java.util.List"%>
 <%@page import="java.util.Map"%>
@@ -30,7 +24,7 @@
     }
 
     DataManager dm = new DataManager();
-    dm.cekDanUpdateDendaOtomatis();
+    dm.cekDanUpdateDendaOtomatis(); 
     
     List<Peminjaman> listPinjam = dm.getPeminjamanByPengguna(idUser);
    
@@ -214,17 +208,29 @@
                                    for(Peminjaman p : listPinjam) {
                                        if ("APPROVED".equals(p.getStatusPeminjaman())) {
                                            String namaFasilitas = cacheNamaFasilitas.get(p.getIdFasilitas()); // Menggunakan Cache
+                                           
+                                           // FORMAT JAM UNTUK KALENDER
+                                           String jamPinjamStr = (p.getJamMulai() != null && p.getJamSelesai() != null) ? 
+                                                                 p.getJamMulai().toString().substring(0,5) + "-" + p.getJamSelesai().toString().substring(0,5) : "07:00-18:00";
+                                           
                                            if (p.getTanggalPinjam() != null) {
                                                Calendar pinjamCal = new GregorianCalendar(); pinjamCal.setTime(p.getTanggalPinjam());
                                                if (pinjamCal.get(Calendar.YEAR) == displayYear && pinjamCal.get(Calendar.MONTH) == displayMonth && pinjamCal.get(Calendar.DAY_OF_MONTH) == i) {
-                                                   eventsHtml.append("<div class=\"bg-blue-100 border border-blue-200 text-primary p-1.5 rounded-md text-[9px] font-semibold leading-tight shadow-sm\">").append(namaFasilitas).append("<div class=\"text-[8px] font-medium text-gray-500 mt-1\">Direservasi</div></div>");
+                                                   eventsHtml.append("<div class=\"bg-blue-100 border border-blue-200 text-primary p-1.5 rounded-md text-[9px] font-semibold leading-tight shadow-sm\">")
+                                                             .append(namaFasilitas)
+                                                             .append("<div class=\"text-[8px] font-medium text-gray-500 mt-1 flex items-center gap-1\"><i data-lucide=\"clock\" class=\"w-2 h-2\"></i>")
+                                                             .append(jamPinjamStr).append("</div></div>");
                                                }
                                            }
-                                           if (p.getTanggalKembali() != null) {
+                                           if (p.getTanggalKembali() != null && !p.getTanggalKembali().equals(p.getTanggalPinjam())) {
                                                Calendar kembaliCal = new GregorianCalendar(); kembaliCal.setTime(p.getTanggalKembali());
                                                if (kembaliCal.get(Calendar.YEAR) == displayYear && kembaliCal.get(Calendar.MONTH) == displayMonth && kembaliCal.get(Calendar.DAY_OF_MONTH) == i) {
                                                    if(!"MENUNGGU_VERIFIKASI".equals(p.getStatusDenda())) {
-                                                       eventsHtml.append("<div class=\"bg-red-50 border border-red-200 text-danger p-1.5 rounded-md text-[9px] font-semibold leading-tight shadow-sm\">").append(namaFasilitas).append("<div class=\"text-[8px] font-medium text-red-400 mt-0.5 flex items-center gap-1\"><i data-lucide=\"alert-circle\" class=\"w-2.5 h-2.5\"></i> Batas Kembali</div></div>");
+                                                       String batasJam = p.getJamSelesai() != null ? p.getJamSelesai().toString().substring(0,5) : "18:00";
+                                                       eventsHtml.append("<div class=\"bg-red-50 border border-red-200 text-danger p-1.5 rounded-md text-[9px] font-semibold leading-tight shadow-sm\">")
+                                                                 .append(namaFasilitas)
+                                                                 .append("<div class=\"text-[8px] font-medium text-red-400 mt-0.5 flex items-center gap-1\"><i data-lucide=\"alert-circle\" class=\"w-2.5 h-2.5\"></i> Batas: ")
+                                                                 .append(batasJam).append("</div></div>");
                                                    }
                                                }
                                            }
@@ -323,7 +329,8 @@
                                             <div>
                                                 <span class="text-xs font-bold text-textmain block truncate w-36 group-hover:text-primary transition-colors"><%= namaFasilitas %></span>
                                                 <span class="text-[9px] text-gray-500 block mt-0.5 flex items-center gap-1">
-                                                    <i data-lucide="clock" class="w-2.5 h-2.5"></i> Batas: <%= p.getTanggalKembali() != null ? formatTanggal.format(p.getTanggalKembali()) : "-" %>
+                                                    <i data-lucide="clock" class="w-2.5 h-2.5"></i> Batas: <%= p.getTanggalKembali() != null ? formatTanggal.format(p.getTanggalKembali()) : "-" %> 
+                                                    <span class="font-semibold text-gray-400 ml-0.5"><%= p.getJamSelesai() != null ? p.getJamSelesai().toString().substring(0,5) : "18:00" %> WIB</span>
                                                 </span>
                                             </div>
                                             <span class="text-[9px] font-bold <%= badgeWarna %> px-2.5 py-1 rounded-md uppercase tracking-widest shadow-sm"><%= badgeTeks %></span>
@@ -407,7 +414,11 @@
                                     <div class="w-10 h-10 bg-blue-50 text-primary rounded-lg flex items-center justify-center mb-3"><i data-lucide="clock" class="w-5 h-5"></i></div>
                                     <h4 class="font-semibold text-sm text-textmain"><%= namaFasilitas %></h4>
                                     <p class="text-xs text-textmuted mb-2">Harap dikembalikan pada:</p>
-                                    <div class="flex items-center gap-1.5 text-[11px] text-danger font-semibold mt-2"><i data-lucide="calendar" class="w-3.5 h-3.5"></i> <%= p.getTanggalKembali() != null ? formatTanggal.format(p.getTanggalKembali()) : "-" %></div>
+                                    <div class="flex items-center gap-1.5 text-[11px] text-danger font-semibold mt-2">
+                                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i> 
+                                        <%= p.getTanggalKembali() != null ? formatTanggal.format(p.getTanggalKembali()) : "-" %> 
+                                        (<%= p.getJamSelesai() != null ? p.getJamSelesai().toString().substring(0,5) : "18:00" %> WIB)
+                                    </div>
                                 </div>
                         <%      }
                                 }

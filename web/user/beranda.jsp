@@ -48,6 +48,7 @@
     SimpleDateFormat fmtBulan = new SimpleDateFormat("MMM");
     SimpleDateFormat fmtTanggal = new SimpleDateFormat("dd");
     SimpleDateFormat fmtTglPenuh = new SimpleDateFormat("dd MMM yyyy");
+    SimpleDateFormat fmtJam = new SimpleDateFormat("HH:mm"); // Formatter untuk Jam
 %>
 <!DOCTYPE html>
 <html lang="id">
@@ -147,6 +148,11 @@
                                            if(countJadwal >= 3) break;
                                            String namaFas = dm.getNamaFasilitas(p.getIdFasilitas());
                                            String borderWarna = countJadwal == 0 ? "border-primary" : "border-gray-200";
+                                           
+                                           // Format data jam jika ada, kalau null tampilkan "-"
+                                           String strJam = (p.getJamMulai() != null && p.getJamSelesai() != null) ? 
+                                                           fmtJam.format(p.getJamMulai()) + " WIB - " + fmtJam.format(p.getJamSelesai()) + " WIB" : 
+                                                           "Waktu Belum Ditentukan";
                             %>
                             <div class="flex items-start gap-4 border-l-4 <%= borderWarna %> pl-4 py-1">
                                 <div class="text-center shrink-0 w-12">
@@ -155,7 +161,7 @@
                                 </div>
                                 <div class="flex-1">
                                     <h3 class="text-[14px] font-bold text-textmain leading-tight"><%= namaFas %></h3>
-                                    <p class="text-xs text-textmuted mt-1">10:00 WIB - 12:30 WIB</p>
+                                    <p class="text-xs text-textmuted mt-1"><%= strJam %></p>
                                     <p class="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide font-semibold"><%= p.getStatusPeminjaman() %></p>
                                 </div>
                                 <button class="text-gray-400 hover:text-primary"><i data-lucide="more-vertical" class="w-5 h-5"></i></button>
